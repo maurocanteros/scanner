@@ -4,12 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Escáner Profesional</title>
-    <!-- Cargamos la librería html5-qrcode para activar la cámara -->
     <script src="https://unpkg.com" type="text/javascript"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
             background-color: #121212;
             color: #ffffff;
             display: flex;
@@ -34,8 +33,7 @@
             border: 2px solid #333;
             position: relative;
         }
-        /* Estilos internos para limpiar los textos nativos de la librería */
-        #lector { border: none !important; }
+        #lector { border: none !important; width: 100%; height: 100%; }
         #lector video { object-fit: cover !important; width: 100% !important; height: 100% !important; }
 
         #area-resultado {
@@ -66,7 +64,6 @@
             max-width: 250px;
             margin-bottom: 30px;
         }
-        .btn:active { transform: scale(0.98); background-color: #43a047; }
     </style>
 </head>
 <body>
@@ -82,7 +79,7 @@
 
     <div id="area-resultado">
         <div class="label-resultado">Último código detectado</div>
-        <div id="resultado" class="texto-resultado">Esperando escaneo...</div>
+        <div id="resultado" class="texto-resultado">Esperando cámara...</div>
     </div>
 
     <button id="btn-accion" class="btn">Iniciar Cámara</button>
@@ -93,45 +90,61 @@
         let html5QrScanner = null;
         let camaraActiva = false;
 
-        // Función que se ejecuta al detectar con éxito un código
-        function alDetectarCodigo(textoDecodificado, resultadoDecodificado) {
+        function alDetectarCodigo(textoDecodificado) {
             resultadoDiv.innerText = textoDecodificado;
-            
-            // Efecto visual rápido de parpadeo verde al escanear
-            resultadoDiv.style.color = "#81C784";
-            setTimeout(() => { resultadoDiv.style.color = "#4CAF50"; }, 300);
-            
-            // Opcional: Hacer vibrar el celular si el dispositivo lo soporta
             if (navigator.vibrate) { navigator.vibrate(100); }
         }
 
-        function encenderCamara() {
-            // Ajustamos el cuadro de enfoque optimizado para códigos de barra (rectángulo ancho)
-            html5QrScanner = new Html5QrcodeScanner("lector", { 
-                fps: 15, 
-                qrbox: { width: 260, height: 140 },
-                rememberLastUsedCamera: true
-            }, false);
+        async function encenderCamara() {
+            resultadoDiv.innerText = "Iniciando hardware...";
+            btnAccion.innerText = "Cargando...";
+            btnAccion.disabled = true;
 
-            html5QrScanner.render(alDetectarCodigo, (error) => {
-                // Silenciamos los errores de búsqueda continua en el feed de video
-            });
+            // Retraso de un segundo para dar tiempo al navegador móvil a responder
+            await new Promise(resolve => setTimeout(resolve, 1000));
 
-            btnAccion.innerText = "Detener Cámara";
-            btnAccion.style.backgroundColor = "#e53935"; // Rojo
-            btnAccion.style.boxShadow = "0 4px 12px rgba(229, 57, 53, 0.3)";
-            camaraActiva = true;
+            try {
+                // Instanciamos el objeto limpiando rastros anteriores
+                html5QrScanner = new Html5QrcodeScanner("lector", { 
+                    fps: 20, 
+                    qrbox: { width: 260, height: 140 },
+                    rememberLastUsedCamera: false, // Forzamos nueva consulta de hardware
+                    supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA]
+                }, false);
+
+                html5QrScanner.render(alDetectarCodigo, (error) => {
+                    // Ignorar reportes continuos de frames vacíos
+                });
+
+                btnAccion.innerText = "Detener Cámara";
+                btnAccion.style.backgroundColor = "#e53935";
+                btnAccion.disabled = false;
+                resultadoDiv.innerText = "Buscando códigos...";
+                camaraActiva = true;
+
+            } catch (err) {
+                console.error(err);
+                resultadoDiv.innerText = "Error: Verifica los permisos de tu cámara.";
+                btnAccion.innerText = "Iniciar Cámara";
+                btnAccion.style.backgroundColor = "#4CAF50";
+                btnAccion.disabled = false;
+                camaraActiva = false;
+            }
         }
 
         function apagarCamara() {
             if (html5QrScanner) {
+                btnAccion.disabled = true;
                 html5QrScanner.clear().then(() => {
                     btnAccion.innerText = "Iniciar Cámara";
-                    btnAccion.style.backgroundColor = "#4CAF50"; // Verde
-                    btnAccion.style.boxShadow = "0 4px 12px rgba(76, 175, 80, 0.3)";
-                    resultadoDiv.innerText = "Esperando escaneo...";
+                    btnAccion.style.backgroundColor = "#4CAF50";
+                    resultadoDiv.innerText = "Cámara apagada.";
+                    btnAccion.disabled = false;
                     camaraActiva = false;
-                }).catch(err => console.error("Error al apagar cámara:", err));
+                }).catch(err => {
+                    console.error(err);
+                    btnAccion.disabled = false;
+                });
             }
         }
 
