@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Escáner Profesional</title>
+    <!-- Cargamos la librería html5-qrcode para activar la cámara -->
+    <script src="https://unpkg.com" type="text/javascript"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        header { text-align: center; margin-top: 10px; }
+        h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 5px; color: #4CAF50; }
+        p { font-size: 0.9rem; color: #aaaaaa; }
+        
+        #contenedor-camara {
+            width: 100%;
+            max-width: 360px;
+            aspect-ratio: 1 / 1;
+            border-radius: 16px;
+            overflow: hidden;
+            background-color: #1e1e1e;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            border: 2px solid #333;
+            position: relative;
+        }
+        /* Estilos internos para limpiar los textos nativos de la librería */
+        #lector { border: none !important; }
+        #lector video { object-fit: cover !important; width: 100% !important; height: 100% !important; }
+
+        #area-resultado {
+            width: 100%;
+            max-width: 360px;
+            background-color: #1e1e1e;
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid #2a2a2a;
+            margin-bottom: 20px;
+        }
+        .label-resultado { font-size: 0.8rem; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+        .texto-resultado { font-size: 1.2rem; font-weight: bold; color: #4CAF50; word-break: break-all; }
+
+        .btn {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 16px 32px;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+            transition: all 0.2s ease;
+            width: 100%;
+            max-width: 250px;
+            margin-bottom: 30px;
+        }
+        .btn:active { transform: scale(0.98); background-color: #43a047; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Escáner de Códigos</h1>
+        <p>Apunta al código de barras o QR</p>
+    </header>
+
+    <div id="contenedor-camara">
+        <div id="lector"></div>
+    </div>
+
+    <div id="area-resultado">
+        <div class="label-resultado">Último código detectado</div>
+        <div id="resultado" class="texto-resultado">Esperando escaneo...</div>
+    </div>
+
+    <button id="btn-accion" class="btn">Iniciar Cámara</button>
+
+    <script>
+        const btnAccion = document.getElementById('btn-accion');
+        const resultadoDiv = document.getElementById('resultado');
+        let html5QrScanner = null;
+        let camaraActiva = false;
+
+        // Función que se ejecuta al detectar con éxito un código
+        function alDetectarCodigo(textoDecodificado, resultadoDecodificado) {
+            resultadoDiv.innerText = textoDecodificado;
+            
+            // Efecto visual rápido de parpadeo verde al escanear
+            resultadoDiv.style.color = "#81C784";
+            setTimeout(() => { resultadoDiv.style.color = "#4CAF50"; }, 300);
+            
+            // Opcional: Hacer vibrar el celular si el dispositivo lo soporta
+            if (navigator.vibrate) { navigator.vibrate(100); }
+        }
+
+        function encenderCamara() {
+            // Ajustamos el cuadro de enfoque optimizado para códigos de barra (rectángulo ancho)
+            html5QrScanner = new Html5QrcodeScanner("lector", { 
+                fps: 15, 
+                qrbox: { width: 260, height: 140 },
+                rememberLastUsedCamera: true
+            }, false);
+
+            html5QrScanner.render(alDetectarCodigo, (error) => {
+                // Silenciamos los errores de búsqueda continua en el feed de video
+            });
+
+            btnAccion.innerText = "Detener Cámara";
+            btnAccion.style.backgroundColor = "#e53935"; // Rojo
+            btnAccion.style.boxShadow = "0 4px 12px rgba(229, 57, 53, 0.3)";
+            camaraActiva = true;
+        }
+
+        function apagarCamara() {
+            if (html5QrScanner) {
+                html5QrScanner.clear().then(() => {
+                    btnAccion.innerText = "Iniciar Cámara";
+                    btnAccion.style.backgroundColor = "#4CAF50"; // Verde
+                    btnAccion.style.boxShadow = "0 4px 12px rgba(76, 175, 80, 0.3)";
+                    resultadoDiv.innerText = "Esperando escaneo...";
+                    camaraActiva = false;
+                }).catch(err => console.error("Error al apagar cámara:", err));
+            }
+        }
+
+        btnAccion.addEventListener('click', () => {
+            if (!camaraActiva) {
+                encenderCamara();
+            } else {
+                apagarCamara();
+            }
+        });
+    </script>
+</body>
+</html>
