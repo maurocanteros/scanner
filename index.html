@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Escáner Profesional</title>
+    <title>Escáner Profesional Rápido</title>
+    <!-- Cargamos la librería oficial -->
     <script src="https://unpkg.com" type="text/javascript"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -14,146 +15,104 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: space-between;
+            justify-content: center;
             min-height: 100vh;
             padding: 20px;
         }
-        header { text-align: center; margin-top: 10px; }
-        h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 5px; color: #4CAF50; }
-        p { font-size: 0.9rem; color: #aaaaaa; }
-        
-        #contenedor-camara {
-            width: 100%;
-            max-width: 360px;
-            aspect-ratio: 1 / 1;
-            border-radius: 16px;
-            overflow: hidden;
+        .tarjeta {
             background-color: #1e1e1e;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-            border: 2px solid #333;
-            position: relative;
-        }
-        #lector { border: none !important; width: 100%; height: 100%; }
-        #lector video { object-fit: cover !important; width: 100% !important; height: 100% !important; }
-
-        #area-resultado {
             width: 100%;
-            max-width: 360px;
-            background-color: #1e1e1e;
-            padding: 15px;
-            border-radius: 12px;
+            max-width: 380px;
+            padding: 30px 20px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
             text-align: center;
             border: 1px solid #2a2a2a;
-            margin-bottom: 20px;
         }
-        .label-resultado { font-size: 0.8rem; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
-        .texto-resultado { font-size: 1.2rem; font-weight: bold; color: #4CAF50; word-break: break-all; }
-
-        .btn {
+        h1 { font-size: 1.6rem; color: #4CAF50; margin-bottom: 8px; }
+        p { font-size: 0.9rem; color: #aaa; margin-bottom: 30px; }
+        
+        /* Escondemos el input nativo feo para usar nuestro propio botón de diseño */
+        #input-camara { display: none; }
+        
+        .btn-escanear {
             background-color: #4CAF50;
             color: white;
             border: none;
-            padding: 16px 32px;
-            font-size: 1rem;
+            padding: 18px 30px;
+            font-size: 1.1rem;
             font-weight: bold;
             border-radius: 50px;
             cursor: pointer;
-            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
-            transition: all 0.2s ease;
+            display: inline-block;
             width: 100%;
-            max-width: 250px;
-            margin-bottom: 30px;
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4);
+            transition: background 0.2s;
         }
+        .btn-escanear:active { background-color: #388E3C; }
+
+        #zona-resultado {
+            margin-top: 35px;
+            padding: 15px;
+            background-color: #151515;
+            border-radius: 10px;
+            border: 1px dashed #333;
+        }
+        .titulo-res { font-size: 0.8rem; color: #666; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+        #resultado { font-size: 1.2rem; font-weight: bold; color: #4CAF50; word-break: break-all; }
+        
+        /* Div oculto obligatorio para que la librería procese la imagen de fondo */
+        #lector-oculto { display: none; }
     </style>
 </head>
 <body>
 
-    <header>
+    <div class="tarjeta">
         <h1>Escáner de Códigos</h1>
-        <p>Apunta al código de barras o QR</p>
-    </header>
+        <p>Presiona el botón, toma una foto al código de barras y listo.</p>
 
-    <div id="contenedor-camara">
-        <div id="lector"></div>
+        <!-- Este label funciona como el botón activador táctil -->
+        <label for="input-camara" class="btn-escanear">Tomar Foto / Escanear</label>
+        
+        <!-- El atributo 'capture' fuerza al celular a abrir la cámara trasera en vez de la galería -->
+        <input type="file" id="input-camara" accept="image/*" capture="environment">
+
+        <div id="zona-resultado">
+            <div class="titulo-res">Código Detectado</div>
+            <div id="resultado">Esperando acción...</div>
+        </div>
     </div>
 
-    <div id="area-resultado">
-        <div class="label-resultado">Último código detectado</div>
-        <div id="resultado" class="texto-resultado">Esperando cámara...</div>
-    </div>
-
-    <button id="btn-accion" class="btn">Iniciar Cámara</button>
+    <div id="lector-oculto"></div>
 
     <script>
-        const btnAccion = document.getElementById('btn-accion');
+        const inputCamara = document.getElementById('input-camara');
         const resultadoDiv = document.getElementById('resultado');
-        let html5QrScanner = null;
-        let camaraActiva = false;
 
-        function alDetectarCodigo(textoDecodificado) {
-            resultadoDiv.innerText = textoDecodificado;
-            if (navigator.vibrate) { navigator.vibrate(100); }
-        }
+        // Inicializamos el decodificador de imágenes de la librería
+        const html5QrCode = new Html5Qrcode("lector-oculto");
 
-        async function encenderCamara() {
-            resultadoDiv.innerText = "Iniciando hardware...";
-            btnAccion.innerText = "Cargando...";
-            btnAccion.disabled = true;
+        inputCamara.addEventListener('change', e => {
+            if (e.target.files.length === 0) return;
+            
+            const archivoImagen = e.target.files[0];
+            resultadoDiv.innerText = "Procesando imagen...";
+            resultadoDiv.style.color = "#FFC107"; // Amarillo de carga
 
-            // Retraso de un segundo para dar tiempo al navegador móvil a responder
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            try {
-                // Instanciamos el objeto limpiando rastros anteriores
-                html5QrScanner = new Html5QrcodeScanner("lector", { 
-                    fps: 20, 
-                    qrbox: { width: 260, height: 140 },
-                    rememberLastUsedCamera: false, // Forzamos nueva consulta de hardware
-                    supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA]
-                }, false);
-
-                html5QrScanner.render(alDetectarCodigo, (error) => {
-                    // Ignorar reportes continuos de frames vacíos
+            // Procesar el archivo de imagen tomado por la cámara
+            html5QrCode.scanFile(archivoImagen, true)
+                .then(textoDecodificado => {
+                    // Éxito al escanear
+                    resultadoDiv.innerText = textoDecodificado;
+                    resultadoDiv.style.color = "#4CAF50"; // Verde
+                    if (navigator.vibrate) { navigator.vibrate(100); }
+                })
+                .catch(err => {
+                    // Si no encuentra código en la foto
+                    resultadoDiv.innerText = "No se detectó ningún código. Intenta enfocar mejor.";
+                    resultadoDiv.style.color = "#f44336"; // Rojo
+                    console.log(err);
                 });
-
-                btnAccion.innerText = "Detener Cámara";
-                btnAccion.style.backgroundColor = "#e53935";
-                btnAccion.disabled = false;
-                resultadoDiv.innerText = "Buscando códigos...";
-                camaraActiva = true;
-
-            } catch (err) {
-                console.error(err);
-                resultadoDiv.innerText = "Error: Verifica los permisos de tu cámara.";
-                btnAccion.innerText = "Iniciar Cámara";
-                btnAccion.style.backgroundColor = "#4CAF50";
-                btnAccion.disabled = false;
-                camaraActiva = false;
-            }
-        }
-
-        function apagarCamara() {
-            if (html5QrScanner) {
-                btnAccion.disabled = true;
-                html5QrScanner.clear().then(() => {
-                    btnAccion.innerText = "Iniciar Cámara";
-                    btnAccion.style.backgroundColor = "#4CAF50";
-                    resultadoDiv.innerText = "Cámara apagada.";
-                    btnAccion.disabled = false;
-                    camaraActiva = false;
-                }).catch(err => {
-                    console.error(err);
-                    btnAccion.disabled = false;
-                });
-            }
-        }
-
-        btnAccion.addEventListener('click', () => {
-            if (!camaraActiva) {
-                encenderCamara();
-            } else {
-                apagarCamara();
-            }
         });
     </script>
 </body>
