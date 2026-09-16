@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Escáner Profesional Rápido</title>
+    <title>Escáner de Barras Infalible</title>
     <!-- Cargamos la librería oficial -->
-    <script src="https://unpkg.com" type="text/javascript"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -32,7 +32,6 @@
         h1 { font-size: 1.6rem; color: #4CAF50; margin-bottom: 8px; }
         p { font-size: 0.9rem; color: #aaa; margin-bottom: 30px; }
         
-        /* Escondemos el input nativo feo para usar nuestro propio botón de diseño */
         #input-camara { display: none; }
         
         .btn-escanear {
@@ -61,7 +60,6 @@
         .titulo-res { font-size: 0.8rem; color: #666; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
         #resultado { font-size: 1.2rem; font-weight: bold; color: #4CAF50; word-break: break-all; }
         
-        /* Div oculto obligatorio para que la librería procese la imagen de fondo */
         #lector-oculto { display: none; }
     </style>
 </head>
@@ -69,12 +67,9 @@
 
     <div class="tarjeta">
         <h1>Escáner de Códigos</h1>
-        <p>Presiona el botón, toma una foto al código de barras y listo.</p>
+        <p>Toma una foto nítida y de cerca al código de barras.</p>
 
-        <!-- Este label funciona como el botón activador táctil -->
         <label for="input-camara" class="btn-escanear">Tomar Foto / Escanear</label>
-        
-        <!-- El atributo 'capture' fuerza al celular a abrir la cámara trasera en vez de la galería -->
         <input type="file" id="input-camara" accept="image/*" capture="environment">
 
         <div id="zona-resultado">
@@ -83,34 +78,45 @@
         </div>
     </div>
 
+    <!-- Elemento necesario en el DOM para procesar la imagen -->
     <div id="lector-oculto"></div>
 
     <script>
         const inputCamara = document.getElementById('input-camara');
         const resultadoDiv = document.getElementById('resultado');
 
-        // Inicializamos el decodificador de imágenes de la librería
-        const html5QrCode = new Html5Qrcode("lector-oculto");
+        // IMPORTANTE: Inicializamos especificando de forma estricta todos los formatos de barra conocidos (EAN, UPC, Code 128, etc)
+        const html5QrCode = new Html5Qrcode("lector-oculto", {
+            formatsToSupport: [ 
+                Html5QrcodeSupportedFormats.EAN_13,
+                Html5QrcodeSupportedFormats.EAN_8,
+                Html5QrcodeSupportedFormats.UPC_A,
+                Html5QrcodeSupportedFormats.UPC_E,
+                Html5QrcodeSupportedFormats.CODE_128,
+                Html5QrcodeSupportedFormats.CODE_39,
+                Html5QrcodeSupportedFormats.QR_CODE
+            ]
+        });
 
         inputCamara.addEventListener('change', e => {
             if (e.target.files.length === 0) return;
             
-            const archivoImagen = e.target.files[0];
-            resultadoDiv.innerText = "Procesando imagen...";
-            resultadoDiv.style.color = "#FFC107"; // Amarillo de carga
+            // CORRECCIÓN CLAVE: Extraemos solo el primer archivo ([0]) en lugar de pasar la lista completa
+            const archivoImagen = e.target.files[0]; 
+            
+            resultadoDiv.innerText = "Leyendo barras...";
+            resultadoDiv.style.color = "#FFC107"; 
 
-            // Procesar el archivo de imagen tomado por la cámara
-            html5QrCode.scanFile(archivoImagen, true)
+            // Escaneamos el archivo individual
+            html5QrCode.scanFile(archivoImagen, false)
                 .then(textoDecodificado => {
-                    // Éxito al escanear
                     resultadoDiv.innerText = textoDecodificado;
-                    resultadoDiv.style.color = "#4CAF50"; // Verde
+                    resultadoDiv.style.color = "#4CAF50"; 
                     if (navigator.vibrate) { navigator.vibrate(100); }
                 })
                 .catch(err => {
-                    // Si no encuentra código en la foto
-                    resultadoDiv.innerText = "No se detectó ningún código. Intenta enfocar mejor.";
-                    resultadoDiv.style.color = "#f44336"; // Rojo
+                    resultadoDiv.innerText = "No se leyó el código. ¡Asegúrate de enfocar bien de cerca!";
+                    resultadoDiv.style.color = "#f44336"; 
                     console.log(err);
                 });
         });
